@@ -4,6 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "pnpm -r --parallel run dev",
+    "dev:web": "pnpm run --filter @commma/web dev",
+    "dev:api": "pnpm run --filter @commma/api dev",
+    "dev:extension": "pnpm run --filter @commma/extension dev",
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
     "typecheck": "pnpm -r run typecheck"
