@@ -1,0 +1,32 @@
+{
+  "name": "@commma/extension",
+  "displayName": "commma",
+  "description": "Track your coding activity with commma",
+  "version": "0.0.1",
+  "private": true,
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "commma.signIn",
+        "title": "commma: Sign in"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "pnpm run build",
+    "build": "tsc -p .",
+    "watch": "tsc -p . -w",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.17",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.8.3"
+  }
+}

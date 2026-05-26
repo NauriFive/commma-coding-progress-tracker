@@ -1,0 +1,13 @@
+{
+  "name": "commma",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint",
+    "typecheck": "pnpm -r run typecheck"
+  },
+  "packageManager": "pnpm@10.28.1",
+  "devDependencies": {}
+}
