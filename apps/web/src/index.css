@@ -10,12 +10,12 @@
   --color-paper-3: #1a1814;
   --color-rule: #221f1a;
   --color-rule-strong: #2d2922;
-  --color-accent: #ffc107;
-  --color-accent-soft: rgba(255, 193, 7, 0.14);
-  --color-accent-line: rgba(255, 193, 7, 0.45);
-  --color-accent-2: #ff4d1a;
-  --color-accent-2-soft: rgba(255, 77, 26, 0.14);
-  --color-accent-2-line: rgba(255, 77, 26, 0.45);
+  --color-accent: #ff4d1a;
+  --color-accent-soft: rgba(255, 77, 26, 0.14);
+  --color-accent-line: rgba(255, 77, 26, 0.45);
+  --color-accent-2: #863bff;
+  --color-accent-2-soft: rgba(134, 59, 255, 0.14);
+  --color-accent-2-line: rgba(134, 59, 255, 0.45);
   --color-live: #9cf76d;
 
   --font-serif: "Instrument Serif", "Times New Roman", serif;
@@ -64,8 +64,8 @@ body {
 
 body {
   background-image:
-    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(255, 193, 7, 0.09), transparent 60%),
-    radial-gradient(ellipse 70% 50% at 50% 110%, rgba(255, 77, 26, 0.06), transparent 60%),
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(255, 77, 26, 0.09), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 50% 110%, rgba(134, 59, 255, 0.06), transparent 60%),
     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.045 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
   background-attachment: fixed;
 }
