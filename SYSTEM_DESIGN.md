@@ -306,11 +306,11 @@ src/
 
 ## 10. Scalability Plan
 
-- **MVP (0 users):** EC2 t3.micro free tier · Upstash Redis free · Railway $5 · Vercel free = ~$5/mo
-- **1k DAU:** Same stack, upgrade Railway plan if needed
-- **5k DAU:** Upgrade to EC2 t3.small, add Railway read replica
-- **10k DAU:** Migrate API to ECS Fargate + ALB, move Redis to ElastiCache
-- **50k DAU:** ECS auto-scaling, CloudFront CDN, separate ingest/read services
+- **MVP:** EC2 t3.micro free tier · Upstash Redis free · Railway $5/mo · Vercel free = ~$5/mo
+- **1k DAU:** Same stack
+- **5k DAU:** Upgrade to t3.small, add Railway read replica
+- **10k DAU:** Migrate to ECS Fargate + ALB, move Redis to ElastiCache
+- **50k DAU:** ECS auto-scaling, CloudFront, separate ingest/read services
 
 ### Deployment Secrets (GitHub Actions)
 

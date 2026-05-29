@@ -228,14 +228,14 @@ BullMQ backed by Redis (same Redis instance as caching in MVP; separate instance
 
 | Layer | Provider | Cost |
 |-------|----------|------|
-| API server | AWS EC2 t3.micro | $0 (free tier 12mo), then $8/mo |
+| API | AWS EC2 t3.micro + PM2 | $0 free tier (12mo), then $8/mo |
 | Redis | Upstash free tier | $0 |
 | PostgreSQL | Railway Hobby | $5/mo |
-| Web app | Vercel Hobby | $0 |
-| Total | | ~$5/mo |
+| Web | Vercel Hobby | $0 |
+| **Total** | | **~$5/mo** |
 
-**Rationale:** Zero users at launch — no need for load balancers, containers, or managed compute. EC2 t3.micro on free tier runs PM2 + the Hono/Node API with plenty of headroom. Upstash provides serverless Redis with a free tier sufficient for MVP. Railway provides zero-config managed Postgres. Vercel handles the frontend with native Vite support and PR preview deploys. Total cost is ~$5/month until meaningful scale.
+**Rationale:** Zero users at launch — no need for load balancers or containers. EC2 t3.micro free tier runs PM2 + Hono/Node with plenty of headroom. Upstash serverless Redis is free at MVP scale. Railway gives zero-config managed Postgres. Vercel handles the frontend with native Vite/React support, PR preview deploys, and a global CDN.
 
-**Migration path:** When DAU hits 10k or free tier expires, migrate API to ECS Fargate + ALB. The app code and Dockerfile stay identical — only the deploy target changes.
+**Migration path:** At 10k DAU or when the free tier expires, migrate API to ECS Fargate + ALB. App code stays identical — only the deploy target changes.
 
-**Rejected:** ECS Fargate at launch — ALB alone costs $18/mo fixed regardless of traffic, wasteful at zero users. ElastiCache at launch — Upstash free tier is sufficient and costs nothing.
+**Rejected:** ECS Fargate at launch — ALB costs $18/mo fixed regardless of traffic. ElastiCache at launch — Upstash free tier is sufficient.
