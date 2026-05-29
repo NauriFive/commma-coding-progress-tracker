@@ -201,12 +201,12 @@ function Hero() {
         </div>
 
         <h1 className='font-serif font-normal text-[clamp(44px,10.5vw,168px)] leading-[0.92] tracking-[-0.035em] m-0'>
-          <span className='block overflow-hidden reveal-clip py-[0.12em] -my-[0.12em]'>
+          <span className='block overflow-hidden reveal-clip py-[0.12em] my-[-0.12em]'>
             <span className='animate-rise-900 delay-120 inline-block'>
               Every commit
             </span>
           </span>
-          <span className='block overflow-hidden reveal-clip py-[0.12em] -my-[0.12em]'>
+          <span className='block overflow-hidden reveal-clip py-[0.12em] my-[-0.12em]'>
             <span className='animate-rise-900 delay-240 inline-block'>
               is a <em className='font-serif italic text-accent'>step.</em>
             </span>
