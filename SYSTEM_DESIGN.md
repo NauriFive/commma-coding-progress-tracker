@@ -314,7 +314,7 @@ src/
 
 ### Deployment Secrets (GitHub Actions)
 
-The `deploy-api` workflow (`.github/workflows/deploy-api.yml`) requires these repository secrets, set under **Settings → Secrets and variables → Actions**:
+The EC2 instance is not provisioned yet, so the `deploy-api` workflow (`.github/workflows/deploy-api.yml`) is **manual-only** (`workflow_dispatch`). Once EC2 is live, switch its trigger back to `push` on `main` and set these repository secrets under **Settings → Secrets and variables → Actions**:
 
 - `EC2_HOST` — public IP or domain of the EC2 instance
 - `EC2_SSH_KEY` — contents of the `.pem` private key file
