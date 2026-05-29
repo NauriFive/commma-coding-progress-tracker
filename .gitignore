@@ -9,3 +9,4 @@ out
 .env.local
 .vscode-test
 CLAUDE.md
+SESSION.md
