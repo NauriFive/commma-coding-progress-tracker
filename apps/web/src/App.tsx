@@ -545,7 +545,7 @@ function HowItWorks() {
           Install the <em className='italic text-accent'>extension.</em>
         </>
       ),
-      ascii: `┌────────────┐\n│  VSCODE    │ ⌄\n│  ●  ●  ●   │\n└────────────┘`,
+      ascii: `┌────────────┐\n│ ●  ●  ●    │\n├────────────┤\n│ > vscode   │\n└────────────┘`,
       body: "One click from the marketplace. Sign in with GitHub, pick a privacy level (every keystroke or just session totals), and you're logging.",
     },
     {
@@ -555,7 +555,7 @@ function HowItWorks() {
           Code <em className='italic text-accent'>as usual.</em>
         </>
       ),
-      ascii: `   ⌨ → ▢ → ☁\n   │   │   │\n  keys evt api`,
+      ascii: `┌──────┐   ┌──────┐   ┌──────┐\n│ keys │ → │ evt  │ → │ api  │\n└──────┘   └──────┘   └──────┘`,
       body: 'The extension batches activity locally and syncs it on a heartbeat. No project content ever leaves your machine — only metrics and file paths you allow.',
     },
     {
@@ -565,7 +565,7 @@ function HowItWorks() {
           Share, race, <em className='italic text-accent'>brag.</em>
         </>
       ),
-      ascii: `  ◆ feed\n  ◇ leaderboard\n  ◇ profile`,
+      ascii: `◆ feed\n◇ leaderboard\n◇ profile`,
       body: 'Your sessions show up in a public feed (or a private one for your team). Streaks, podiums, and weekly recaps roll up automatically.',
     },
   ]
