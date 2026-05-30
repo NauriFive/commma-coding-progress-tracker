@@ -186,6 +186,7 @@ Sorted sets are authoritative for ranking. User handles and metadata are hydrate
 - Leaderboard reads are O(log N + 100) regardless of total user count
 - Sorted sets are updated inline during session aggregation — no separate job
 - If Redis is wiped, the leaderboard is rebuilt from PostgreSQL on next read (cold start path)
+- **Rebuild source (important, per ADR-010):** step-4 aggregation **prunes events** after writing sessions, so the cold-start rebuild must sum `sessions.duration_s` grouped by user (and by period for week/month from `sessions.started_at`) — **never** from `events`, which no longer holds the history. Maintenance today is incremental `ZINCRBY` on session write; the rebuild itself is not implemented yet and must land with the `GET /v1/leaderboard` endpoint (Phase 2), or a Redis flush will silently and permanently under-count rankings.
 
 ### Rejected Alternatives
 
@@ -196,7 +197,7 @@ Sorted sets are authoritative for ranking. User handles and metadata are hydrate
 
 ## ADR-008: BullMQ for Background Job Queue
 
-**Status:** Accepted — 2026-05
+**Status:** Superseded by ADR-010 — 2026-05
 
 ### Context
 
@@ -239,3 +240,41 @@ BullMQ backed by Redis (same Redis instance as caching in MVP; separate instance
 **Migration path:** At 10k DAU or when the free tier expires, migrate API to ECS Fargate + ALB. App code stays identical — only the deploy target changes.
 
 **Rejected:** ECS Fargate at launch — ALB costs $18/mo fixed regardless of traffic. ElastiCache at launch — Upstash free tier is sufficient.
+
+---
+
+## ADR-010: Interval-Based Aggregation (supersedes ADR-008)
+
+**Status:** Accepted — 2026-05 (supersedes ADR-008)
+
+### Context
+
+ADR-008 chose BullMQ for session aggregation. In implementation a cost problem surfaced against the ADR-009 stack: a BullMQ worker **blocking-polls Redis continuously even when idle** (`BRPOPLPUSH`/`BZPOPMIN` loops, scheduler ticks). On the Upstash free tier — billed per command (~500K/month) — a single always-on idle worker would exhaust the budget on polling alone, before processing a single real job. At zero/low users that is pure waste.
+
+### Decision
+
+Replace the BullMQ queue with an **in-process interval scan**. A `setInterval` (5 min) inside the API Node process runs the aggregator: `SELECT DISTINCT user_id FROM events` → per user, fetch events ordered by `ts` → split on the 15-min idle gap → finalize only **closed** sessions (a trailing in-progress group is left for the next tick) → write `sessions` + `session_langs` + `session_files` + `keyboard_heatmap`, update `streaks`, `ZINCRBY` the leaderboard, and **delete** the finalized events, all in one transaction per user. An in-process guard prevents overlapping runs; `RUN_AGGREGATION` env gates the loop so only one instance runs it if ever scaled horizontally.
+
+### Consequences
+
+- **Zero idle Redis commands** — Redis is touched only on session write (a few `ZINCRBY`) and per request (one rate-limit command). Comfortably within the Upstash free tier.
+- Finalizing only closed sessions makes re-runs **idempotent** — a session is written exactly once and never rewritten, which also makes deleting its events safe (strong Railway storage discipline).
+- No external queue dependency, no separate worker process to deploy (pure backend code; PM2/EC2 setup is unchanged).
+- **Lost:** BullMQ's automatic retry, dead-letter queue, and Bull Board observability. Mitigated because failed users are logged and simply retried on the next tick (their events stay in the table until successfully finalized). Acceptable for a single-instance MVP.
+- Latency is up to one interval (~5 min) before closed sessions appear — and a session cannot be known to have ended until the 15-min idle gap exists anyway, so this is not a practical regression.
+
+### Rejected Alternatives
+
+- **BullMQ as in ADR-008** — rejected on Upstash command-budget grounds (idle polling), not on correctness.
+- **Tuning BullMQ poll intervals** — reduces but does not eliminate idle commands, and adds tuning complexity for no benefit at MVP scale.
+
+### Scale notes & migration path
+
+These are the tweaks this design will need as load grows. None are needed at MVP; they are recorded so they are not rediscovered later.
+
+- **(A) Trigger → queue + dedicated worker.** The interval scan (one `setInterval` in the web process, sequential per user, `SELECT DISTINCT user_id` each tick) caps out as active users grow — the scan widens and per-user work serializes on the request event loop. At the horizontal-scale / ElastiCache tier (where Redis is no longer billed per command, so the ADR-010 cost objection disappears), move aggregation to a separate worker process behind a real queue. This also dissolves the multi-instance duplication risk (today only an in-process guard + `RUN_AGGREGATION` prevent two instances aggregating the same users). **Pre-seamed:** `run.ts` already exposes `aggregateUser(userId)` as a standalone unit and the logic lives in pure modules (`boundaries`/`build`/`streak`), so this swap replaces `scheduler.ts` and enqueues one job per user — `aggregateUser` becomes the job processor unchanged. No work now.
+- **(B) Rate-limit client IP behind a proxy.** `ipKey` takes the first `x-forwarded-for` hop. Once an ALB/CloudFront fronts the API (the 10k-DAU tier), that hop is the proxy's view and is spoofable unless the chain is trusted. When the LB lands, trust the correct XFF index / the proxy's real-client header.
+- **(C) Leaderboard rebuild source.** Because this step **prunes (deletes) events** after aggregating, the Redis-wipe rebuild promised in ADR-007 must sum from the `sessions` table, not `events`. Fine to mid-scale; at large session volume, rebuild from a periodic user-rollup table rather than scanning all sessions. See ADR-007.
+
+**Not scale issues (do not tweak for scale):** `duration_s` idle inflation (accuracy — fixed by the extension's heartbeat cadence in step 5), event pruning (already the scale win — keeps `events` tiny regardless of history), streak UTC day boundaries (correctness/UX, scale-invariant).
+

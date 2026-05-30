@@ -43,12 +43,12 @@ All three tiers communicate over HTTPS/JSON. A shared package (`@commma/shared`)
 │                            │          └───────┬───────┘ │
 │                            ▼                  │         │
 │                     ┌──────────────┐          │         │
-│                     │  BullMQ      │          │         │
-│                     │  Worker      │          │         │
-│                     │  (session    │          │         │
-│                     │  aggregation │          │         │
-│                     │  + heatmap   │          │         │
-│                     │  merge)      │          │         │
+│                     │  Aggregation │          │         │
+│                     │  interval    │          │         │
+│                     │  (5 min,     │          │         │
+│                     │  ADR-010):   │          │         │
+│                     │  session +   │          │         │
+│                     │  heatmap     │          │         │
 │                     └──────┬───────┘          │         │
 └────────────────────────────┼──────────────────┼─────────┘
                              │                  │
@@ -60,7 +60,7 @@ All three tiers communicate over HTTPS/JSON. A shared package (`@commma/shared`)
               │  │  - users       │  │  - leaderboard  │  │
               │  │  - events      │  │    sorted sets  │  │
               │  │  - sessions    │  │  - rate limits  │  │
-              │  │  - streaks     │  │  - BullMQ queue │  │
+              │  │  - streaks     │  │  - no job queue │  │
               │  │  - follows     │  │  - session cache│  │
               │  └────────────────┘  └─────────────────┘  │
               └─────────────────────────────────────────────┘
@@ -91,21 +91,22 @@ API /v1/ingest
   ├─ validate with Zod (HeartbeatBatch schema)
   ├─ deduplicate by event.id (idempotency)
   ├─ bulk INSERT into events table
-  ├─ enqueue aggregation job in BullMQ
   └─ return 202 Accepted
 
-BullMQ Worker (runs every 5 min)
-  ├─ SELECT unprocessed events grouped by user_id
+Aggregation interval (in-process setInterval, every 5 min — see ADR-010)
+  ├─ SELECT DISTINCT user_id FROM events
+  ├─ for each user: fetch events ordered by ts
   ├─ detect session boundaries (15-min idle gap = new session)
-  ├─ for each session:
-  │   ├─ sum duration, keystrokes, lines_delta
+  ├─ finalize only CLOSED sessions (trailing in-progress group waits for next tick)
+  ├─ for each closed session (one transaction per user):
+  │   ├─ sum duration, keystrokes, lines_delta; compute pace/peak
   │   ├─ merge key_freq maps → keyboard_heatmap JSONB
   │   ├─ group by lang → session_langs rows
   │   ├─ group by file → session_files rows
-  │   └─ INSERT/UPSERT into sessions table
+  │   ├─ INSERT into sessions table
+  │   └─ DELETE the finalized events (prune — bounds events storage)
   ├─ UPDATE streaks table
-  ├─ UPDATE Redis leaderboard sorted set (ZADD)
-  └─ mark events as processed
+  └─ UPDATE Redis leaderboard sorted set (ZINCRBY, after commit)
 ```
 
 ---
@@ -271,11 +272,12 @@ CREATE INDEX follows_followee ON follows(followee_id);
 
 ## 8. Background Jobs
 
-### Session Aggregation Worker
+### Session Aggregation (in-process interval — ADR-010, supersedes ADR-008/BullMQ)
 
-- **Trigger:** BullMQ job enqueued on every ingest, deduplicated per user per 5-min window
-- **Logic:** fetch unprocessed events → boundary detection → merge → upsert sessions → update streaks → ZADD leaderboard → mark events processed
-- **Failure:** retried up to 3 times with exponential backoff; dead-letter queue for inspection
+- **Trigger:** an in-process `setInterval` (5 min) in the API process; an in-process guard prevents overlapping runs, and `RUN_AGGREGATION` gates it so only one instance runs the loop if ever scaled out.
+- **Logic:** `SELECT DISTINCT user_id` → per user fetch events by `ts` → boundary detection → finalize only *closed* sessions → build sessions/langs/files/heatmap, update streaks, delete finalized events (one txn/user) → `ZINCRBY` leaderboard after commit.
+- **Failure:** a failed user is logged and retried on the next tick — its events stay in the table until successfully finalized (no queue/DLQ). Re-runs are idempotent because only closed sessions are written.
+- **Cost:** zero idle Redis commands (no queue polling); Redis touched only on session write. This is the reason BullMQ was dropped — see ADR-010.
 
 ### Streak Maintenance Job
 

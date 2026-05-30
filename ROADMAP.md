@@ -17,18 +17,20 @@ Goal: working ingest pipeline end-to-end.
 ### In Progress
 
 - [x] PostgreSQL schema migration (users, events, sessions, streaks, follows)
-- [ ] GitHub OAuth flow (API ↔ GitHub)
-- [ ] JWT issuance and middleware
+- [x] GitHub OAuth flow (API ↔ GitHub)
+- [x] JWT issuance and middleware
 - [ ] VSCode extension: SecretStorage token management
 - [ ] VSCode extension: `commma: Sign In` command
 
 ### Planned
 
-- [ ] `POST /v1/ingest` with Zod validation and idempotency
-- [ ] BullMQ worker: session boundary detection and aggregation
-- [ ] BullMQ worker: `keyboard_heatmap` merge from `key_freq` events
-- [ ] BullMQ worker: streak update
-- [ ] `GET /v1/sessions` (basic list)
+- [x] `POST /v1/ingest` with Zod validation and idempotency
+- [x] Interval aggregator (ADR-010, not BullMQ): session boundary detection and aggregation
+- [x] Aggregator: `keyboard_heatmap` merge from `key_freq` events
+- [x] Aggregator: streak update
+- [x] Leaderboard sorted-set maintenance (`ZINCRBY` on session write; read endpoint is Phase 2)
+- [x] Redis fixed-window rate limiting (ingest/read/auth tiers, `429` + `X-RateLimit-*`) — built early; ROADMAP-listed in Phase 3
+- [x] `GET /v1/sessions` (basic list)
 - [ ] Extension heartbeat flush (60s interval, offline queue)
 
 **Definition of Done:**
@@ -52,8 +54,8 @@ Goal: something a real user can experience end-to-end.
 - [ ] PNG export (9:16, 1:1, 16:9 presets, transparent background)
 - [ ] Streak calculation cron job
 - [ ] Profile page at `/@handle` (live data)
-- [ ] Redis leaderboard sorted set (ZADD on session write)
-- [ ] `GET /v1/leaderboard` endpoint
+- [x] Redis leaderboard sorted set (incremental `ZINCRBY` on session write — done in step 4)
+- [ ] `GET /v1/leaderboard` endpoint — **must include the cold-start rebuild summing `sessions.duration_s` (events are pruned, so rebuild from `sessions`, never `events`); see ADR-007/ADR-010**
 - [ ] Follow/unfollow API
 - [ ] `GET /v1/feed` endpoint
 - [ ] Leaderboard page in web app
@@ -73,7 +75,7 @@ Goal: production-safe. No known P0/P1 bugs. Published extension.
 
 ### Planned
 
-- [ ] Redis rate limiter middleware
+- [x] Redis rate limiter middleware (built early in step 4) — **follow-up: trust the correct `x-forwarded-for` hop once an ALB/CloudFront fronts the API; see ADR-010 (B)**
 - [ ] Privacy mode: `key_freq` and file paths suppressed when `privacy = summary`
 - [ ] Extension offline queue with exponential backoff retry
 - [ ] Structured error responses across all endpoints
