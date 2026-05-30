@@ -1,15 +1,16 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
+    "module": "esnext",
     "target": "ES2022",
-    "outDir": "dist",
     "lib": ["ES2022"],
-    "sourceMap": true,
+    "moduleResolution": "bundler",
     "rootDir": "src",
     "strict": true,
+    "noEmit": true,
+    "sourceMap": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "moduleResolution": "node"
+    "types": ["node", "vscode"]
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]

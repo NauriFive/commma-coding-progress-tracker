@@ -2,7 +2,7 @@
   "name": "@commma/extension",
   "displayName": "commma",
   "description": "Track your coding activity with commma",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "engines": {
     "vscode": "^1.85.0"
@@ -15,19 +15,52 @@
       {
         "command": "commma.signIn",
         "title": "commma: Sign in"
+      },
+      {
+        "command": "commma.signOut",
+        "title": "commma: Sign out"
+      },
+      {
+        "command": "commma.toggleTracking",
+        "title": "commma: Pause / Resume tracking"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "commma",
+      "properties": {
+        "commma.apiBaseUrl": {
+          "type": "string",
+          "default": "http://localhost:3000",
+          "description": "Base URL of the commma API."
+        },
+        "commma.privacy": {
+          "type": "string",
+          "enum": ["full", "summary", "off"],
+          "enumDescriptions": [
+            "Send all fields, including file paths and key-label frequency.",
+            "Send duration, keystrokes, and lines only — no file paths, no key frequency.",
+            "Track nothing and send nothing."
+          ],
+          "default": "full",
+          "description": "Controls how much activity data the extension sends."
+        }
+      }
+    }
   },
   "scripts": {
-    "vscode:prepublish": "pnpm run build",
-    "build": "tsc -p .",
-    "watch": "tsc -p . -w",
-    "dev": "tsc -p . -w",
+    "vscode:prepublish": "esbuild src/extension.ts --bundle --platform=node --target=node20 --external:vscode --format=cjs --minify --outfile=dist/extension.js",
+    "build": "esbuild src/extension.ts --bundle --platform=node --target=node20 --external:vscode --format=cjs --sourcemap --outfile=dist/extension.js",
+    "watch": "esbuild src/extension.ts --bundle --platform=node --target=node20 --external:vscode --format=cjs --sourcemap --watch --outfile=dist/extension.js",
+    "dev": "pnpm run watch",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@commma/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.11.17",
     "@types/vscode": "^1.85.0",
+    "esbuild": "^0.24.2",
     "typescript": "^5.8.3"
   }
 }

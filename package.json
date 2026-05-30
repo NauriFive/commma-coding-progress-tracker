@@ -12,5 +12,8 @@
     "typecheck": "pnpm -r run typecheck"
   },
   "packageManager": "pnpm@10.28.1",
-  "devDependencies": {}
+  "devDependencies": {},
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
 }
