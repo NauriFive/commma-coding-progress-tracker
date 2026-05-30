@@ -21,9 +21,15 @@ import {
 } from '../lib/cookies.js'
 import { apiError } from '../lib/errors.js'
 import { requireAuth } from '../middleware/auth.js'
+import { ipKey, rateLimit } from '../middleware/rateLimit.js'
 import type { AppEnv } from '../types.js'
 
 export const authRoutes = new Hono<AppEnv>()
+
+authRoutes.use(
+  '*',
+  rateLimit({ scope: 'auth', limit: 20, windowS: 3600, key: ipKey }),
+)
 
 authRoutes.get('/github', (c) => {
   const state = randomBytes(16).toString('base64url')

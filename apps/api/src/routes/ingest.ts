@@ -5,6 +5,7 @@ import { events, type KeyFreq } from '@commma/db'
 import { db } from '../db.js'
 import { apiError } from '../lib/errors.js'
 import { requireAuth } from '../middleware/auth.js'
+import { rateLimit, userKey } from '../middleware/rateLimit.js'
 import type { AppEnv } from '../types.js'
 
 export const ingestRoutes = new Hono<AppEnv>()
@@ -12,6 +13,7 @@ export const ingestRoutes = new Hono<AppEnv>()
 ingestRoutes.post(
   '/',
   requireAuth,
+  rateLimit({ scope: 'ingest', limit: 1000, windowS: 3600, key: userKey }),
   zValidator('json', heartbeatBatchSchema, (result, c) => {
     if (!result.success) {
       return apiError(
