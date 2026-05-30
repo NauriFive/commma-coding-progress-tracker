@@ -329,4 +329,5 @@ The EC2 instance is not provisioned yet, so the `deploy-api` workflow (`.github/
 - **API → DB:** private network; no public DB port
 - **API → Redis:** private network; AUTH password required
 - **Web → API:** CORS restricted to `commma.dev`; CSRF not applicable (JWT not in cookies for web)
-- **Refresh token:** HTTP-only cookie; `SameSite=Strict`; `Secure`; `Path=/v1/auth`
+- **Refresh token (web):** HTTP-only cookie; `SameSite=Strict`; `Secure`; `Path=/v1/auth`
+- **Refresh token (extension):** the extension can't use cookies, so it obtains the refresh token via the loopback one-time-code flow (ADR-011), stores it in VSCode **SecretStorage**, and sends it in the `/v1/auth/refresh` and `/v1/auth/signout` request body (not a cookie)

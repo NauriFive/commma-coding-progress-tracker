@@ -165,6 +165,29 @@ Track only key labels — the physical key pressed — never key content. The di
 
 - **Content-based tracking** — rejected unconditionally. Capturing what was typed would make commma a keylogger regardless of intent. No business justification exists.
 
+### Amendment — 2026-05 (extension implementation, step 5)
+
+VSCode exposes **no raw key-event API** to extensions. The only signal that
+reveals which character key was pressed is the inserted text in
+`onDidChangeTextDocument`. Building the per-key heatmap therefore requires reading
+that character. This amendment defines the narrow, permitted way to do so without
+weakening the guarantee:
+
+> Characters from `contentChanges.text` are read solely to increment a frequency
+> counter then immediately discarded. The string is never stored, logged, or
+> transmitted. Only the final `Record<string, number>` map is retained. Content is
+> unrecoverable from a frequency histogram — this is not key logging.
+
+Implementation (`apps/extension/src/keyCounter.ts`): each `contentChange` is
+mapped to a single `KeyLabel` (lowercased letters/digits, `\n`→`Enter`,
+`\t`→`Tab`, a deletion→`Backspace`, anything else→`Other`) and folded into a
+counter. Order, position, and surrounding context are destroyed at the point of
+capture. Multi-character inserts (paste/autocomplete/IME) are **not** attributed
+to any key. The bright line is unchanged: an **order-destroyed histogram** is key
+labels; a reconstructable sequence is content and remains forbidden. Recorded with
+a CHANGELOG entry and an extension version bump (`0.0.1 → 0.1.0`) as this ADR
+requires.
+
 ---
 
 ## ADR-007: Redis Sorted Sets for Leaderboard
@@ -276,5 +299,66 @@ These are the tweaks this design will need as load grows. None are needed at MVP
 - **(B) Rate-limit client IP behind a proxy.** `ipKey` takes the first `x-forwarded-for` hop. Once an ALB/CloudFront fronts the API (the 10k-DAU tier), that hop is the proxy's view and is spoofable unless the chain is trusted. When the LB lands, trust the correct XFF index / the proxy's real-client header.
 - **(C) Leaderboard rebuild source.** Because this step **prunes (deletes) events** after aggregating, the Redis-wipe rebuild promised in ADR-007 must sum from the `sessions` table, not `events`. Fine to mid-scale; at large session volume, rebuild from a periodic user-rollup table rather than scanning all sessions. See ADR-007.
 
-**Not scale issues (do not tweak for scale):** `duration_s` idle inflation (accuracy — fixed by the extension's heartbeat cadence in step 5), event pruning (already the scale win — keeps `events` tiny regardless of history), streak UTC day boundaries (correctness/UX, scale-invariant).
+**Not scale issues (do not tweak for scale):** `duration_s` accuracy (addressed in step 5 — `buildSession` floors duration to `span + one heartbeat window`, since each heartbeat represents up to ~60s of activity; a single-event session is 60s not 0s, so it earns real leaderboard credit and non-zero lang splits), event pruning (already the scale win — keeps `events` tiny regardless of history), streak UTC day boundaries (correctness/UX, scale-invariant).
+
+---
+
+## ADR-011: Extension Auth — Loopback Redirect + One-Time Code
+
+**Status:** Accepted — 2026-05 (step 5)
+
+### Context
+
+The web auth flow (ADR per `routes/auth.ts`) returns the access token as JSON and
+the refresh token as an **HTTP-only, `SameSite=Strict`, `Path=/v1/auth` cookie**.
+A VSCode extension is not a browser: it cannot read or replay that cookie, and
+there is no web app yet to broker a "connect your editor" handshake. The extension
+must drive GitHub OAuth itself and obtain tokens it can persist in SecretStorage.
+
+### Decision
+
+**Loopback redirect + one-time code exchange** (the RFC 8252 "OAuth for native
+apps" loopback pattern, with a server-side single-use code instead of PKCE):
+
+1. The extension starts a throwaway HTTP server on an ephemeral `127.0.0.1` port
+   and opens the system browser to `GET /v1/auth/github?redirect_uri=<loopback>`.
+2. `GET /v1/auth/github` validates `redirect_uri` against a loopback allowlist
+   (`http://127.0.0.1:*` / `http://localhost:*`) and stores `state → redirect_uri`
+   in Redis (`oauth:cli:state:<state>`, TTL 600s). The existing CSRF state cookie
+   and GitHub redirect are unchanged.
+3. After the normal GitHub exchange + user upsert, the callback detects the CLI
+   flow (state key present in Redis), mints a **single-use one-time code**
+   (`oauth:cli:code:<code> → userId`, TTL 60s) and redirects the browser to the
+   loopback `redirect_uri?code=<code>`. The long-lived refresh token never transits
+   a URL.
+4. The extension exchanges the code at **`POST /v1/auth/cli/exchange`** for
+   `{ access_token, refresh_token, user }` over HTTPS and stores the refresh token
+   in `context.secrets`.
+5. `POST /v1/auth/refresh` and `POST /v1/auth/signout` additionally accept a
+   `{ refresh_token }` body (rotated value returned in the body) so the extension
+   can refresh/revoke without a cookie. The browser cookie paths are untouched.
+
+State (state→redirect_uri, one-time codes) lives only in Redis with short TTLs —
+**no DB migration**. Token minting reuses `signAccessToken` / `mintRefreshToken` /
+`rotateRefreshToken` / `revokeRefreshToken`.
+
+### Consequences
+
+- The extension authenticates with no web app and no cookie support; the browser
+  and extension flows share one set of endpoints with a clean branch.
+- The refresh token is delivered over HTTPS in the exchange body, never in a URL;
+  the only URL-borne secret is a 60-second single-use code.
+- The extension bundles with **esbuild** (`--format=cjs`, `vscode` external) so the
+  CJS VSCode host can consume `@commma/shared` (ESM, raw-TS source); `tsc --noEmit`
+  remains the typecheck.
+
+### Rejected Alternatives
+
+- **`vscode://` URI handler deep link** — more idiomatic and works in Remote/
+  Codespaces, but adds moving parts; loopback is simpler to build and verify for
+  the desktop MVP. Revisit if Remote/web VSCode support is needed.
+- **Manual token paste (PAT-style)** — clunky UX and needs a web/API page to
+  display a token (none exists yet); closer to the icebox "API access tokens" idea.
+- **Reusing the cookie refresh flow** — impossible: the browser, not the extension,
+  receives the callback's `Set-Cookie`.
 

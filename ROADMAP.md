@@ -19,8 +19,8 @@ Goal: working ingest pipeline end-to-end.
 - [x] PostgreSQL schema migration (users, events, sessions, streaks, follows)
 - [x] GitHub OAuth flow (API ↔ GitHub)
 - [x] JWT issuance and middleware
-- [ ] VSCode extension: SecretStorage token management
-- [ ] VSCode extension: `commma: Sign In` command
+- [x] VSCode extension: SecretStorage token management (loopback one-time-code auth, ADR-011)
+- [x] VSCode extension: `commma: Sign In` command (+ `Sign Out`)
 
 ### Planned
 
@@ -31,7 +31,7 @@ Goal: working ingest pipeline end-to-end.
 - [x] Leaderboard sorted-set maintenance (`ZINCRBY` on session write; read endpoint is Phase 2)
 - [x] Redis fixed-window rate limiting (ingest/read/auth tiers, `429` + `X-RateLimit-*`) — built early; ROADMAP-listed in Phase 3
 - [x] `GET /v1/sessions` (basic list)
-- [ ] Extension heartbeat flush (60s interval, offline queue)
+- [x] Extension heartbeat flush (60s interval; simple in-memory retry — persistent offline queue w/ backoff is Phase 3)
 
 **Definition of Done:**
 
@@ -136,6 +136,7 @@ Goal: mobile, multi-editor, self-hosted.
 - [ ] Heatmap export on mobile (touch-friendly)
 - [ ] JetBrains plugin scaffold (community-contributed)
 - [ ] Neovim Lua plugin scaffold (community-contributed)
+- [ ] Standalone CLI client (`commma login` / `commma watch`) as a headless data source — **auth is already unblocked by ADR-011** (the loopback one-time-code flow + `POST /v1/auth/cli/exchange` were built CLI-first in step 5; a CLI just reuses them). Sessions stay server-derived, so no manual "start session" command — same passive model as the extension.
 - [ ] Third-party client event schema documentation (including `key_freq` spec)
 - [ ] `docker-compose.yml` for full self-hosted stack
 - [ ] Helm chart scaffold for Kubernetes

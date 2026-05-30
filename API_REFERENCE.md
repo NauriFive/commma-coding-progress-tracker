@@ -25,21 +25,25 @@ Access tokens expire in 15 minutes. Use the refresh endpoint to rotate.
 
 ### `GET /v1/auth/github`
 
-Redirects the browser to GitHub OAuth. Use from the extension or a browser-based sign-in flow.
+Redirects the browser to GitHub OAuth. Use from a browser-based sign-in flow or from the extension's loopback flow (ADR-011).
 
 **Auth:** None  
+**Query params:** `redirect_uri` *(optional)* — a loopback URL (`http://127.0.0.1:<port>/...` or `http://localhost:<port>/...`) to send the browser to after auth completes. Present only for the extension/CLI flow; rejected with `400 VALIDATION_ERROR` if not a loopback address.  
 **Response:** `302` redirect to GitHub
 
 ---
 
 ### `GET /v1/auth/github/callback`
 
-Exchanges the GitHub code for a user identity, issues a JWT and sets a refresh token cookie.
+Exchanges the GitHub code for a user identity. Behaviour depends on the flow:
+
+- **Browser flow** (no `redirect_uri` was sent to `/github`): issues a JWT and sets the refresh token cookie, returns the JSON below.
+- **Extension/CLI flow** (`redirect_uri` was sent): mints a single-use one-time code (60s TTL, Redis) and `302`-redirects the browser to `redirect_uri?code=<code>`. No tokens or cookie are returned to the browser; the extension exchanges the code at `POST /v1/auth/cli/exchange`.
 
 **Auth:** None  
-**Query params:** `code` — GitHub authorization code
+**Query params:** `code` — GitHub authorization code; `state` — CSRF state
 
-**Response:**
+**Response (browser flow):**
 
 ```json
 {
@@ -55,24 +59,50 @@ Exchanges the GitHub code for a user identity, issues a JWT and sets a refresh t
 
 ---
 
-### `POST /v1/auth/refresh`
+### `POST /v1/auth/cli/exchange`
 
-Rotates the refresh token and issues a new access token. Requires the refresh token HTTP-only cookie.
+Exchanges a one-time code (from the extension/CLI loopback flow) for tokens. The code is single-use and expires after 60 seconds.
 
-**Auth:** Refresh cookie  
+**Auth:** None  
+**Body:** `{ "code": "<one-time-code>" }`
+
 **Response:**
 
 ```json
-{ "access_token": "eyJ..." }
+{
+  "access_token": "eyJ...",
+  "refresh_token": "<opaque>",
+  "user": {
+    "id": "uuid",
+    "handle": "yoursquid",
+    "email": "user@example.com",
+    "avatar_url": "https://avatars.githubusercontent.com/..."
+  }
+}
 ```
+
+Returns `401 UNAUTHORIZED` if the code is invalid or expired.
+
+---
+
+### `POST /v1/auth/refresh`
+
+Rotates the refresh token and issues a new access token.
+
+**Auth:** the refresh token, supplied **either** as the HTTP-only cookie (browser) **or** in the JSON body `{ "refresh_token": "<opaque>" }` (extension).
+
+**Response:**
+
+- Cookie flow: `{ "access_token": "eyJ..." }` (rotated token set as the new cookie).
+- Body flow: `{ "access_token": "eyJ...", "refresh_token": "<opaque>" }` (rotated token returned for the caller to persist).
 
 ---
 
 ### `POST /v1/auth/signout`
 
-Revokes the refresh token.
+Revokes the refresh token (the cookie's, and/or the one supplied in the body).
 
-**Auth:** JWT  
+**Auth:** JWT. Optionally include `{ "refresh_token": "<opaque>" }` in the body to revoke the extension's stored token.  
 **Response:** `204 No Content`
 
 ---
