@@ -121,6 +121,34 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
   and 4K) under `assets/video/`. The original `commma-intro` masters are
   retained.
 
+### Fixed
+
+- **API** — GitHub sign-in no longer fails with a generic 500 when the account's
+  GitHub email or username is already attached to another commma account. The
+  callback upserts on `github_id`, so a colliding `users_email_unique` /
+  `users_handle_unique` row raised an unhandled driver error — reachable when
+  one person has two GitHub accounts sharing an email, or when a username is
+  renamed or recycled. A returning user now signs in normally and simply keeps
+  their existing handle/email (the conflicting field is skipped and logged); a
+  brand-new account that would collide gets a `409 CONFLICT` naming the field
+  instead of a crash.
+- **API** — `POST /v1/teams/invites/:id/accept` and `/decline` returned
+  `500 INTERNAL_ERROR` for any `:id` that is not a UUID, because the value went
+  straight into a `uuid` column comparison. Both now return `404 NOT_FOUND`. The
+  UUID guard already used by the session routes moved to a shared `lib/uuid.ts`
+  helper.
+- **API** — The shareable heatmap card could `500` on both the authed and public
+  `:id/heatmap-card` routes. Card text embeds the session's top language, which
+  arrives from a client as an arbitrary `lang` string; a control character in it
+  produced XML the SVG rasterizer refuses to parse. `xmlEscape` now strips
+  characters XML 1.0 cannot represent.
+- **API** — The push-reminder scheduler could silently skip a day. It ticked
+  once an hour and only acted when the tick landed in `PUSH_REMINDER_HOUR_UTC`,
+  so accumulated `setInterval` drift could step over that hour entirely and send
+  nothing, with no error. It now ticks every five minutes and takes a leader
+  lock scoped to the target date and hour, so the window can't be missed and the
+  reminder still sends exactly once per day.
+
 ## [1.0.0] — 2026-06-19
 
 ### Added
