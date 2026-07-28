@@ -30,6 +30,7 @@ import {
   TEAM_MAX_MEMBERS,
   TEAM_MAX_OWNED,
 } from '../lib/teams.js'
+import { isUuid } from '../lib/uuid.js'
 import { redis } from '../redis.js'
 import { log } from '../logger.js'
 import type { AppEnv } from '../types.js'
@@ -223,6 +224,7 @@ teamRoutes.get('/invites', read, async (c) => {
 })
 
 async function loadOwnInvite(inviteId: string, userId: string) {
+  if (!isUuid(inviteId)) return null
   const rows = await db
     .select()
     .from(teamInvites)

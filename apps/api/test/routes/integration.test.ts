@@ -218,6 +218,31 @@ describe.skipIf(!hasDb)('route integration', () => {
     const body = (await res.json()) as { error: { code: string } }
     expect(body.error.code).toBe('VALIDATION_ERROR')
   })
+
+  it('404s rather than 500s on a malformed session id', async () => {
+    const res = await req('/v1/sessions/not-a-uuid')
+    expect(res.status).toBe(404)
+  })
+
+  it('404s rather than 500s on a malformed invite id', async () => {
+    const user = await seedUser()
+    const token = await mintToken(user.id)
+    const auth = { Authorization: `Bearer ${token}` }
+
+    const accept = await req('/v1/teams/invites/not-a-uuid/accept', {
+      method: 'POST',
+      headers: auth,
+    })
+    expect(accept.status).toBe(404)
+    const acceptBody = (await accept.json()) as { error: { code: string } }
+    expect(acceptBody.error.code).toBe('NOT_FOUND')
+
+    const decline = await req('/v1/teams/invites/not-a-uuid/decline', {
+      method: 'POST',
+      headers: auth,
+    })
+    expect(decline.status).toBe(404)
+  })
 })
 
 async function loadDb() {

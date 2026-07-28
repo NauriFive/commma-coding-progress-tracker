@@ -20,6 +20,7 @@ import {
   type CardAspect,
 } from '../lib/heatmapCard.js'
 import { toSessionSummary, topLangBySession } from '../lib/sessionSummary.js'
+import { isUuid } from '../lib/uuid.js'
 import { requireAuth } from '../middleware/auth.js'
 import { ipKey, rateLimit, userKey } from '../middleware/rateLimit.js'
 import { redis } from '../redis.js'
@@ -43,9 +44,6 @@ const heatmapCardQuerySchema = z.object({
 const CARD_CACHE_TTL_S = 600
 
 export const sessionRoutes = new Hono<AppEnv>()
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 async function renderCardPng(
   sessionId: string,
@@ -207,7 +205,7 @@ sessionRoutes.get(
   rateLimit({ scope: 'read', limit: 300, windowS: 3600, key: ipKey }),
   async (c) => {
     const id = c.req.param('id')
-    if (!UUID_RE.test(id)) return apiError(c, 'NOT_FOUND', 'Session not found')
+    if (!isUuid(id)) return apiError(c, 'NOT_FOUND', 'Session not found')
 
     const header = c.req.header('Authorization')
     const token = header?.startsWith('Bearer ') ? header.slice(7) : null
@@ -286,7 +284,7 @@ sessionRoutes.post(
   }),
   async (c) => {
     const id = c.req.param('id')
-    if (!UUID_RE.test(id)) return apiError(c, 'NOT_FOUND', 'Session not found')
+    if (!isUuid(id)) return apiError(c, 'NOT_FOUND', 'Session not found')
 
     const opts = c.req.valid('json')
     if (opts.layout !== 'qwerty') {
@@ -363,7 +361,7 @@ sessionRoutes.get(
   }),
   async (c) => {
     const id = c.req.param('id')
-    if (!UUID_RE.test(id)) return apiError(c, 'NOT_FOUND', 'Session not found')
+    if (!isUuid(id)) return apiError(c, 'NOT_FOUND', 'Session not found')
 
     const opts = c.req.valid('query')
     if (opts.layout !== 'qwerty') {
