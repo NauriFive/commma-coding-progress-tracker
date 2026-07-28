@@ -1,3 +1,4 @@
+import sharp from 'sharp'
 import { describe, expect, it } from 'vitest'
 import type { KeyboardHeatmap } from '@commma/db'
 import {
@@ -64,6 +65,28 @@ describe('renderHeatmapCardSvg', () => {
       stats: 'a & b < c',
     })
     expect(svg).toContain('a &amp; b &lt; c')
+  })
+
+  it('strips control characters that xml cannot represent', () => {
+    const svg = renderHeatmapCardSvg({
+      heatmap,
+      aspect: '16:9',
+      handle: '@oct\u0000ocat',
+      stats: '60 cpm  ·  ts\u000bx',
+    })
+    expect(svg).toContain('@octocat')
+    expect(svg).toContain('tsx')
+    expect(svg).not.toMatch(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/)
+  })
+
+  it('stays parseable by the png renderer for hostile language names', async () => {
+    const svg = renderHeatmapCardSvg({
+      heatmap,
+      aspect: '16:9',
+      handle: '@octocat',
+      stats: '60 cpm  ·  ts\u0000\u000b<script>',
+    })
+    await expect(sharp(Buffer.from(svg)).png().toBuffer()).resolves.toBeTruthy()
   })
 })
 
