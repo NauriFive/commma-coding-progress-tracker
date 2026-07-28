@@ -70,8 +70,12 @@ function lerpColor(a: string, b: string, t: number): string {
   return `rgb(${r}, ${g}, ${bl})`
 }
 
+const XML_INVALID_CHARS =
+  /[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]/g
+
 function xmlEscape(value: string): string {
   return value
+    .replace(XML_INVALID_CHARS, '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
