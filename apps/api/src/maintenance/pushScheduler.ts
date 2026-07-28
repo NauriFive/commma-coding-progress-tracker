@@ -6,7 +6,8 @@ import { log } from '../logger.js'
 import { acquireLeader } from '../lib/scheduling.js'
 import { isWebPushEnabled, sendPush } from '../lib/webPush.js'
 
-const INTERVAL_MS = 60 * 60 * 1000
+const INTERVAL_MS = 5 * 60 * 1000
+const SLOT_LOCK_TTL_MS = 2 * 60 * 60 * 1000
 
 let timer: NodeJS.Timeout | null = null
 let running = false
@@ -14,11 +15,13 @@ let running = false
 async function tick(): Promise<void> {
   if (!isWebPushEnabled()) return
   if (running) return
-  if (new Date().getUTCHours() !== env.PUSH_REMINDER_HOUR_UTC) return
-  if (!(await acquireLeader('push-reminders', INTERVAL_MS))) return
+  const now = new Date()
+  if (now.getUTCHours() !== env.PUSH_REMINDER_HOUR_UTC) return
+  const slot = `${now.toISOString().slice(0, 10)}h${now.getUTCHours()}`
+  if (!(await acquireLeader(`push-reminders:${slot}`, SLOT_LOCK_TTL_MS))) return
   running = true
   try {
-    const todayUTC = new Date().toISOString().slice(0, 10)
+    const todayUTC = now.toISOString().slice(0, 10)
 
     const targets = await db
       .select({
